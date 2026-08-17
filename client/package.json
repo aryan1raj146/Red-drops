@@ -2,6 +2,7 @@
   "name": "client",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://aryan1raj146.github.io/Red-drops",
   "type": "module",
   "scripts": {
   "dev": "vite",

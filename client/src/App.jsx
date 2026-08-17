@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// Asset Imports
+// Assets
 import logoImg from './assets/emoji 2.jpg';
 import step1Img from './assets/download (1).jpeg';
 import bloodEmojiImg from './assets/blood emoji.jpeg';
@@ -10,9 +10,15 @@ import syringeImg from './assets/syrenge.png';
 import thankYouImg from './assets/download.jpeg';
 
 function App() {
-  // Application View state: 'home' | 'form' | 'thankYou' | 'ineligible'
-  const [view, setView] = useState('home'); 
+
+  const [view, setView] = useState('home');
   const [step, setStep] = useState(1);
+
+
+  const [donors, setDonors] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [loadingDonors, setLoadingDonors] = useState(false);
 
   const initialFormState = {
     name: '', dob: '', gender: '', weight: '', phone: '', email: '', address: '',
@@ -23,6 +29,25 @@ function App() {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+
+
+  const fetchDonors = async () => {
+    setLoadingDonors(true);
+    try {
+      const res = await axios.get('http://localhost:5000/api/donors');
+      setDonors(res.data);
+    } catch (err) {
+      console.error('Failed to load donors:', err);
+    } finally {
+      setLoadingDonors(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'findBlood') {
+      fetchDonors();
+    }
+  }, [view]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,13 +115,21 @@ function App() {
       setView('thankYou');
     } catch (err) {
       console.error(err);
-      alert('Failed to connect to backend server. Make sure node server is running on port 5000.');
+      alert('Failed to connect to backend server.');
     }
   };
 
+  const filteredDonors = donors.filter((d) => {
+    const matchesSearch =
+      d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.address.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGroup = selectedGroup ? d.blood_group === selectedGroup : true;
+    return matchesSearch && matchesGroup;
+  });
+
   return (
     <div className="container">
-      {/* Header */}
+   
       <header>
         <div className="logo-container" style={{ cursor: 'pointer' }} onClick={() => setView('home')}>
           <img src={logoImg} alt="Red Drops Logo" className="header-logo" />
@@ -107,32 +140,132 @@ function App() {
             <h1>Membership & Blood Donation Portal</h1>
           </div>
         </div>
-        <div className="slogan">Donate Blood, Save Lives</div>
+        <div className="slogan">Save Lives</div>
       </header>
 
-      {/* VIEW 1: LANDING PAGE */}
+      <nav className="nav-bar">
+        <button className={`nav-btn ${view === 'home' ? 'active' : ''}`} onClick={() => setView('home')}>Home</button>
+        <button className={`nav-btn ${view === 'findBlood' ? 'active' : ''}`} onClick={() => setView('findBlood')}>Find Blood</button>
+        <button className={`nav-btn ${view === 'whyDonate' ? 'active' : ''}`} onClick={() => setView('whyDonate')}>Why Donate Blood</button>
+        <button className={`nav-btn ${view === 'form' ? 'active' : ''}`} onClick={() => { setView('form'); setStep(1); }}>Register as Donor</button>
+      </nav>
+
+      
       {view === 'home' && (
         <div className="hero-card">
           <h2 className="hero-title">Welcome to Red Drops Club</h2>
           <p className="hero-subtitle">
-            Every drop of blood you donate can bring a smile back to someone’s face and give them a second chance at life.
+            Connecting generous donors with those in critical need. Every single drop counts.
           </p>
 
           <div className="step-image-container">
-            <img src={step1Img} alt="Blood Donation Illustration" className="step-image" style={{ maxWidth: '60%' }} />
+            <img src={step1Img} alt="Blood Donation Illustration" className="step-image" />
           </div>
 
           <div className="featured-quote">
             "Tears of a mother cannot save her child, but your blood can. Be a hero, donate blood."
           </div>
 
+          <div className="cta-button-group">
+            <button className="cta-button" onClick={() => { setView('form'); setStep(1); }}>
+              Donate Blood Now
+            </button>
+            <button className="cta-button secondary" onClick={() => setView('findBlood')}>
+              Find Available Donors
+            </button>
+          </div>
+        </div>
+      )}
+
+     
+      {view === 'findBlood' && (
+        <div className="hero-card" style={{ textAlign: 'left' }}>
+          <h2 className="bold-title">Find Blood Donors</h2>
+          <p style={{ color: '#666', fontSize: '14px' }}>Search verified registered donors available for blood requests:</p>
+
+          <div className="search-controls">
+            <input
+              type="text"
+              placeholder="Search by donor name or location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)}>
+              <option value="">All Blood Groups</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          {loadingDonors ? (
+            <p>Loading donor registry...</p>
+          ) : filteredDonors.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#888', margin: '30px 0' }}>No donors found matching your search.</p>
+          ) : (
+            <table className="donor-table">
+              <thead>
+                <tr>
+                  <th>Blood Group</th>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Address</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDonors.map((donor) => (
+                  <tr key={donor.id}>
+                    <td><span className="blood-badge">{donor.blood_group}</span></td>
+                    <td>{donor.name}</td>
+                    <td>{donor.phone}</td>
+                    <td>{donor.address}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+     
+      {view === 'whyDonate' && (
+        <div className="hero-card">
+          <h2 className="bold-title" style={{ textAlign: 'left' }}>Why Donate Blood?</h2>
+          <p style={{ textAlign: 'left', color: '#555' }}>
+            Donating blood does not just save lives—it offers significant health and psychological benefits for you as well.
+          </p>
+
+          <div className="benefits-grid">
+            <div className="benefit-item">
+              <h4>Saves Up to 3 Lives</h4>
+              <p>A single pint of donated blood can be separated into red cells, plasma, and platelets to help multiple patients.</p>
+            </div>
+            <div className="benefit-item">
+              <h4>Free Health Check-Up</h4>
+              <p>Prior to donation, your pulse, blood pressure, body temperature, and hemoglobin levels are evaluated.</p>
+            </div>
+            <div className="benefit-item">
+              <h4>Balances Iron Levels</h4>
+              <p>Regular blood donations help prevent iron overload in your blood, lowering cardiovascular risks.</p>
+            </div>
+            <div className="benefit-item">
+              <h4>Emotional Well-being</h4>
+              <p>Knowing you made a direct, tangible contribution to saving a human life uplifts mental wellness and purpose.</p>
+            </div>
+          </div>
+
           <button className="cta-button" onClick={() => { setView('form'); setStep(1); }}>
-            Become a Donor / Apply Now
+            Join As A Lifesaver Today
           </button>
         </div>
       )}
 
-      {/* VIEW 2: FORM */}
+     
       {view === 'form' && (
         <main>
           <form onSubmit={handleSubmit}>
@@ -266,7 +399,6 @@ function App() {
         </main>
       )}
 
-      {/* VIEW 3: THANK YOU SCREEN */}
       {view === 'thankYou' && (
         <div className="hero-card">
           <img src={thankYouImg} alt="Cross Band-aid" style={{ width: '80px', marginBottom: '15px' }} />
@@ -279,7 +411,6 @@ function App() {
         </div>
       )}
 
-      {/* VIEW 4: INELIGIBLE SCREEN */}
       {view === 'ineligible' && (
         <div className="hero-card">
           <h2 className="bold-title">Ineligible to Donate</h2>

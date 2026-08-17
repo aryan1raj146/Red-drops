@@ -7,7 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// API route to register a donor
 app.post('/api/donors', (req, res) => {
     const data = req.body;
 
@@ -44,10 +43,26 @@ app.post('/api/donors', (req, res) => {
 
     db.query(query, values, (err, result) => {
         if (err) {
-            console.error('Error inserting data:', err);
+            console.error('Error inserting donor data:', err);
             return res.status(500).json({ error: 'Database insertion failed.' });
         }
         res.status(201).json({ message: 'Donor registered successfully!', id: result.insertId });
+    });
+});
+
+app.get('/api/donors', (req, res) => {
+    const query = `
+        SELECT id, name, gender, phone, email, address, blood_group, last_donation 
+        FROM donors 
+        ORDER BY id DESC
+    `;
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching donors:', err);
+            return res.status(500).json({ error: 'Failed to fetch donor list.' });
+        }
+        res.status(200).json(results);
     });
 });
 
